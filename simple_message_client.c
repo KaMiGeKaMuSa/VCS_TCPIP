@@ -182,7 +182,8 @@ void sendRequest(int *paramISocketFD)
 	}
 	
 	/* everthing fine - close file pointer */
-	fclose(fpWriteSocket);
+	
+	//fclose(fpWriteSocket);
 }
 
 void readResponse(int *paramISocketFD) 
@@ -190,10 +191,12 @@ void readResponse(int *paramISocketFD)
 	FILE* fpReadSocket = NULL;
 	char cBuf[MAX_BUF];
 	int iFirstLoop = 1;
-	int iRecStatus;
+	int iRecStatus, iRecLength;
+	char *cFilename = NULL;
 	
 	/* TODO: read response of stream and save in file with specified filename */
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
+		printf("test: %s\n", strerror(errno));
 		fprintf(stderr,"%s: %s\n", "fdopen()", /*strerror(errno)*/"open of read stream failed");
 		exit(EXIT_FAILURE);
 	}
@@ -213,10 +216,31 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
+			
 		} else {
-		
+			/* get status of response */
+			if (sscanf(cBuf,"file=%s",cFilename) == 0) {
+				if (errno != 0) {
+					fprintf(stderr,"%s: %s\n", "sscanf()", /*strerror(errno)*/"status could not be scanned");
+					fclose(fpReadSocket);
+					exit(EXIT_FAILURE);
+				}
+			}
+			
+			/* get status of response */
+			if (sscanf(cBuf,"len=%d",&iRecLength) == 0) {
+				if (errno != 0) {
+					fprintf(stderr,"%s: %s\n", "sscanf()", /*strerror(errno)*/"status could not be scanned");
+					fclose(fpReadSocket);
+					exit(EXIT_FAILURE);
+				}
+			}
 		}
 	}
+	
+	printf("status = %d\n", iRecStatus);
+	printf("length = %d\n",iRecLength);
+	printf("filename = %s\n", cFilename);
 	
 	/* everthing fine - close file pointer */
 	fclose(fpReadSocket);
