@@ -205,8 +205,9 @@ void sendRequest(int *paramISocketFD)
 void readResponse(int *paramISocketFD) 
 {
 	FILE* fpReadSocket = NULL;
+	FILE* fpInputFile = NULL;
 	char cBuf[MAX_BUF];
-	int iRecStatus, iRecLength;
+	int iRecStatus, iRecLength, iIsData = 0;
 	char *cpResponseFilename = NULL;
 	
 	/* open socket file descriptor in read operation */
@@ -220,6 +221,7 @@ void readResponse(int *paramISocketFD)
 		printf("buf = %s\n", cBuf);
 		
 		errno = 0;
+		iIsData = 0;
 			
 		/* check if part of buffered response is status part */
 		if (strncmp(cBuf, "status=", 7) == 0) 
@@ -233,6 +235,7 @@ void readResponse(int *paramISocketFD)
 				}
 			}
 			printf("status = %d\n", iRecStatus);
+			iIsData = 1;
 		}
 		
 		/* check if part of buffered response is filename part */
@@ -255,6 +258,7 @@ void readResponse(int *paramISocketFD)
 				}
 			}
 			printf("filename = %s\n", cpResponseFilename);
+			iIsData = 1;
 		}
 		
 		/* check if part of buffered response is length part */
@@ -269,10 +273,30 @@ void readResponse(int *paramISocketFD)
 				}
 			}
 			printf("length = %d\n",iRecLength);
+			iIsData = 1;
 		}
 		
+		if (iIsData == 0)
+		{
+			if ((fpInputFile = fopen(cpResponseFilename,"w")) ==  NULL)
+			{
+				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno));
+				fclose(fpReadSocket);
+				exit(EXIT_FAILURE);
+			}
+			
+			if ((fwrite(cBuf, 1, sizeof(cBuf),fpInputFile)) == 0)
+			{
+				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
+				fclose(fpInputFile);
+				fclose(fpReadSocket);
+				exit(EXIT_FAILURE);
+			}
+			fclose(fpInputFile);
+		}
 	}
 	
 	/* everthing fine - close file pointer */
+	//fclose(fpInputFile);
 	fclose(fpReadSocket);
 }
