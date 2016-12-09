@@ -285,13 +285,22 @@ void readResponse(int *paramISocketFD)
 				exit(EXIT_FAILURE);
 			}
 			
-			if ((fwrite(cBuf, 1, sizeof(cBuf),fpInputFile)) == 0)
+			printf("%s",cBuf);
+			
+			if ((fwrite(cBuf, sizeof(char), sizeof(cBuf),fpInputFile)) == 0)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
 				fclose(fpInputFile);
 				fclose(fpReadSocket);
 				exit(EXIT_FAILURE);
 			}
+			
+			if (fflush(fpInputFile) != 0) {
+				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno));
+				fclose(fpInputFile);
+				exit(EXIT_FAILURE);
+			}
+	
 			fclose(fpInputFile);
 		}
 	}
