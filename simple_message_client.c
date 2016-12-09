@@ -31,12 +31,12 @@
 /**
  * -------------------------------------------------------------- defines --
  */
-#define MAX_BUF 256 
+#define MAX_BUF 1024 
  
  /**
  * -------------------------------------------------------------- global variables --
  */
-const char *cpServer, *cpPort, *cpUser, *cpMessage, *cpImage;
+const char *cpServer, *cpPort, *cpUser, *cpMessage, *cpImage, *cpFilename;
 int iVerbose = 0;
 
 /*
@@ -53,6 +53,7 @@ void readResponse(int *paramISocketFD);
 int main(int argc, const char* argv[])
 {	
 	int iSocketFD = NULL;
+	cpFilename = argv[0];
 	
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
 	smc_parsecommandline(argc, argv, &usage, &cpServer, &cpPort, &cpUser, &cpMessage, &cpImage, &iVerbose);
@@ -108,7 +109,7 @@ void openSocket(int *paramISocketFD)
 	
 	/* get address info of socket */
 	if ((iRetValue = getaddrinfo(cpServer, cpPort, &hints, &socket_address)) != 0) {
-		fprintf(stderr,"%s: %s\n", "getaddrinfo()", /*strerror(errno)*/"");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "getaddrinfo()", /*strerror(errno)*/"");
 		exit(EXIT_FAILURE);
 	}
 	
@@ -126,7 +127,7 @@ void openSocket(int *paramISocketFD)
     }
 	
 	if (rp == NULL) {
-		fprintf(stderr,"%s: %s\n", "socket(),connect()", "no address succeeded");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),connect()", "no address succeeded");
 		exit(EXIT_FAILURE);
 	}
 	
@@ -140,13 +141,13 @@ void sendRequest(int *paramISocketFD)
 	
 	/* open socket file descriptor */
 	if ((fpWriteSocket = fdopen(*paramISocketFD, "w")) == NULL) {
-		fprintf(stderr,"%s: %s\n", "fdopen()", /*strerror(errno)*/"open of write stream failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", /*strerror(errno)*/"open of write stream failed");
 		exit(EXIT_FAILURE);
 	}
 	
 	/* write user to stream */
 	if (fprintf(fpWriteSocket,"user=%s\n",cpUser) < 0) {
-		fprintf(stderr,"%s: %s\n", "fprintf()", /*strerror(errno)*/"print of user failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", /*strerror(errno)*/"print of user failed");
 		fclose(fpWriteSocket);
 		exit(EXIT_FAILURE);
 	}
@@ -154,7 +155,7 @@ void sendRequest(int *paramISocketFD)
 	/* if img exist: write image to sream */
 	if (cpImage != NULL) {
 		if (fprintf(fpWriteSocket,"img=%s\n", cpImage) < 0) {
-			fprintf(stderr,"%s: %s\n", "fprintf()", /*strerror(errno)*/"print of img failed");
+			fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", /*strerror(errno)*/"print of img failed");
 			fclose(fpWriteSocket);
 			exit(EXIT_FAILURE);
 		}
@@ -162,21 +163,21 @@ void sendRequest(int *paramISocketFD)
 	
 	/* write message to stream */
 	if (fprintf(fpWriteSocket,"%s\n", cpMessage) < 0) {
-		fprintf(stderr,"%s: %s\n", "fprintf()", /*strerror(errno)*/"print of message failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", /*strerror(errno)*/"print of message failed");
 		fclose(fpWriteSocket);
 		exit(EXIT_FAILURE);
 	}
 	
 	/* flush all unwritten data to the stream */
 	if (fflush(fpWriteSocket) != 0) {
-		fprintf(stderr,"%s: %s\n", "fflush()", /*strerror(errno)*/"flush of write stream failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", /*strerror(errno)*/"flush of write stream failed");
 		fclose(fpWriteSocket);
 		exit(EXIT_FAILURE);
 	}
 	
 	/* after writing: disable write operations for socket */
 	if (shutdown(*paramISocketFD,SHUT_WR) != 0) {
-		fprintf(stderr,"%s: %s\n", "shutdown()", /*strerror(errno)*/"close of write direction failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "shutdown()", /*strerror(errno)*/"close of write direction failed");
 		fclose(fpWriteSocket);
 		exit(EXIT_FAILURE);
 	}
@@ -192,12 +193,11 @@ void readResponse(int *paramISocketFD)
 	char cBuf[MAX_BUF];
 	int iFirstLoop = 1;
 	int iRecStatus, iRecLength;
-	char *cFilename = NULL;
+	char *cResponseFilename = NULL;
 	
 	/* TODO: read response of stream and save in file with specified filename */
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
-		printf("test: %s\n", strerror(errno));
-		fprintf(stderr,"%s: %s\n", "fdopen()", /*strerror(errno)*/"open of read stream failed");
+		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 	
@@ -211,26 +211,40 @@ void readResponse(int *paramISocketFD)
 			/* get status of response */
 			if (sscanf(cBuf,"status=%d",&iRecStatus) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s: %s\n", "sscanf()", /*strerror(errno)*/"status could not be scanned");
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"status could not be scanned");
 					fclose(fpReadSocket);
 					exit(EXIT_FAILURE);
 				}
 			}
 			
 		} else {
-			/* get status of response */
-			if (sscanf(cBuf,"file=%s",cFilename) == 0) {
+			/* get filename of response */
+			if (sscanf(cBuf,"file=%s",cResponseFilename) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s: %s\n", "sscanf()", /*strerror(errno)*/"status could not be scanned");
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"filename could not be scanned");
 					fclose(fpReadSocket);
 					exit(EXIT_FAILURE);
 				}
 			}
+			/*
+			if (strncmp(cBuf, "file=", 5) != 0) 
+			{
+				fprintf(stderr,"%s - %s: %s\n", cpFilename, "strncmp()", strerror(errno));
+				fclose(fpReadSocket);
+				exit(EXIT_FAILURE);
+			}
+			if ((cResponseFilename = malloc((len(cBuf) - 6) * sizeof(char))) == NULL)
+			{
+				fprintf(stderr,"%s - %s: %s\n", cpFilename, "malloc()", strerror(errno));
+				fclose(fpReadSocket);
+				exit(EXIT_FAILURE);
+			}
+			*/
 			
-			/* get status of response */
+			/* get len of response */
 			if (sscanf(cBuf,"len=%d",&iRecLength) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s: %s\n", "sscanf()", /*strerror(errno)*/"status could not be scanned");
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"len could not be scanned");
 					fclose(fpReadSocket);
 					exit(EXIT_FAILURE);
 				}
@@ -240,7 +254,7 @@ void readResponse(int *paramISocketFD)
 	
 	printf("status = %d\n", iRecStatus);
 	printf("length = %d\n",iRecLength);
-	printf("filename = %s\n", cFilename);
+	printf("filename = %s\n", cResponseFilename);
 	
 	/* everthing fine - close file pointer */
 	fclose(fpReadSocket);
