@@ -191,7 +191,6 @@ void readResponse(int *paramISocketFD)
 {
 	FILE* fpReadSocket = NULL;
 	char cBuf[MAX_BUF];
-	int iFirstLoop = 1;
 	int iRecStatus, iRecLength;
 	char *cResponseFilename = NULL;
 	
@@ -203,12 +202,13 @@ void readResponse(int *paramISocketFD)
 	
 	/* loop over response */
 	while(fgets(cBuf, MAX_BUF, fpReadSocket)) {
-		/* first loop is to get status */
-		if (iFirstLoop) {
-			iFirstLoop = 0;
-			errno = 0;
+		printf("buf = %s\n", cBuf);
+		
+		errno = 0;
 			
-			/* get status of response */
+		/* get status of response */
+		if (strncmp(cBuf, "status=", 7) == 0) 
+		{
 			if (sscanf(cBuf,"status=%d",&iRecStatus) == 0) {
 				if (errno != 0) {
 					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"status could not be scanned");
@@ -216,32 +216,33 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
-			
-		} else {
-			/* get filename of response */
-			if (sscanf(cBuf,"file=%s",cResponseFilename) == 0) {
-				if (errno != 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"filename could not be scanned");
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
-				}
-			}
-			/*
-			if (strncmp(cBuf, "file=", 5) != 0) 
-			{
-				fprintf(stderr,"%s - %s: %s\n", cpFilename, "strncmp()", strerror(errno));
-				fclose(fpReadSocket);
-				exit(EXIT_FAILURE);
-			}
-			if ((cResponseFilename = malloc((len(cBuf) - 6) * sizeof(char))) == NULL)
+			printf("status = %d\n", iRecStatus);
+		}
+		
+		/* get filename of response */
+		if (strncmp(cBuf, "file=", 5) == 0) 
+		{
+			/* malloc for length of cbuf - "file=" and \n char at the end of the line */
+			if ((cResponseFilename = malloc((strlen(cBuf) - 6) * sizeof(char))) == NULL)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "malloc()", strerror(errno));
 				fclose(fpReadSocket);
 				exit(EXIT_FAILURE);
 			}
-			*/
-			
-			/* get len of response */
+			if (sscanf(cBuf,"file=%s",cResponseFilename) == 0) {
+				if (errno != 0) {
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"file could not be scanned");
+					fclose(fpReadSocket);
+					exit(EXIT_FAILURE);
+				}
+			}
+			printf("filename = %s\n", cResponseFilename);
+		}
+		
+		
+		/* get bytes-length of file */
+		if (strncmp(cBuf, "len=", 4) == 0) 
+		{
 			if (sscanf(cBuf,"len=%d",&iRecLength) == 0) {
 				if (errno != 0) {
 					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"len could not be scanned");
@@ -249,12 +250,12 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
+			printf("length = %d\n",iRecLength);
 		}
+		
 	}
 	
-	printf("status = %d\n", iRecStatus);
-	printf("length = %d\n",iRecLength);
-	printf("filename = %s\n", cResponseFilename);
+	
 	
 	/* everthing fine - close file pointer */
 	fclose(fpReadSocket);
