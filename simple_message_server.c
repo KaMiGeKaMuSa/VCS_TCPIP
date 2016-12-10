@@ -23,12 +23,12 @@
  listen
 	accept
 	fork
- dup2 für stdin und stdout
-	exec (businesslogic ausführen)
- close für stdin und stdout
+ dup2 fÃ¼r stdin und stdout
+	exec (businesslogic ausfÃ¼hren)
+ close fÃ¼r stdin und stdout
 	close
  
- getopt für port
+ getopt fÃ¼r port
  bind bsp in manpage von ip(7)
  struct sockaddr_in:
 	- sa_family = AF_INET;
@@ -76,15 +76,84 @@ void usage(FILE * stream, const char * message, int exitcode);
  */
 int main(int argc, const char* argv[])
 {
-    //int iSocketFD = NULL;
-    cpFilename = argv[0];
-    
-    /* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
-    smc_parsecommandline(argc, argv, &usage, &cpPort);
-    
-    
-    //openSocket(&iSocketFD);
-    
+	//int iSocketFD = NULL;
+	cpFilename = argv[0];
+
+	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
+	smc_parsecommandline(argc, argv, &usage, &cpPort);
+
+	int sfd, cfd;
+	pid_t childpid;
+
+	//openSocket(&iSocketFD);
+	struct sockaddr_in peer_addr;
+	socklen_t peer_addr_size;
+	peer_addr_size = sizeof(struct sockaddr_in);
+	
+	//socket
+	sfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sfd == -1)
+	{
+	   fprintf(stderr,"Could not create socket");
+	   exit(1);
+	}		   
+			   
+	// bind
+	if (bind(sfd, htons(cpPort), INADDR_ANY) != 0)
+	{
+	   fprintf(stderr,"Could not bind socket");
+	   close(sfd);    
+	   exit(1);
+	}        			   
+			   
+	// listen
+	if (listen(sfd,LISTEN_BACKLOG)==-1) 
+	{
+	   fprintf(stderr,"Could not start listener");
+	   close(sfd);    
+	   exit(1);
+	}       
+
+	// loop
+	for (;;) {
+		// accept
+		cfd = accept(sfd, (struct sockaddr *) &peer_addr,
+				&peer_addr_size);
+		if (cfd == -1)
+		{
+		   fprintf(stderr,"Could not accept connection");
+		   close(sfd);
+		   exit(1);
+		}       
+
+		// fork
+		childpid = fork();
+	
+		// Child process after fork
+		if(childpid == (pid_t) 0)
+		{
+			// exec 
+
+			// close
+	
+		}
+		// Parent process after fork
+		else if (childpid > (pid_t) 0)
+		{
+			// dup2
+			
+			// close
+	
+		}
+		else 
+		{
+			// fork failed
+			exit(1);
+		}	
+
+	
+	}
+			   
     //sendRequest(&iSocketFD);
     
     //readResponse(&iSocketFD);
