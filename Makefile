@@ -1,6 +1,6 @@
 ##
 ## @file Makefile
-## SIMPLE_MESSAGE_CLIENT_SERVER_APP
+## SIMPLE_MESSAGE_CLIENT and SIMPLE_MESSAGE_Server
 ## TCP
 ##
 ## @author Karin Kalman <karin.kalman@technikum-wien.at>
@@ -39,17 +39,19 @@ EXCLUDE_PATTERN=footrulewidth
 ## --------------------------------------------------------------- targets --
 ##
 
-all: simple_message_client
-##all: simple_message_client simple_message_server
+
+all: simple_message_client simple_message_server
 
 simple_message_client: simple_message_client_commandline_handling.o simple_message_client.o
 	$(CC) $(OPTFLAGS) simple_message_client_commandline_handling.o simple_message_client.o -o simple_message_client
-
-#simple_message_server: simple_message_server_commandline_handling.o simple_message_server.o
-#	$(CC) $(OPTFLAGS) simple_message_server_commandline_handling.o simple_message_server.o -o simple_message_server
-
+	$(RM) *.o
+	
+simple_message_server: simple_message_server_commandline_handling.o simple_message_server.o
+	$(CC) $(OPTFLAGS) simple_message_server_commandline_handling.o simple_message_server.o -o simple_message_server
+	$(RM) *.o
+	
 clean:
-	$(RM) *.o *~  simple_message_client
+	$(RM) *.o *~  simple_message_client simple_message_server
 	
 distclean: clean
 	$(RM) -r doc
