@@ -13,7 +13,7 @@
  *
  * URL: $HeadURL$
  *
- * Last Modified: $Author: Gerhard $
+ * Last Modified: $Author: Karin $
  */
 
 
