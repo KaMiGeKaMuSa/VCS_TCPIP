@@ -80,7 +80,9 @@ int main(int argc, const char* argv[])
 {
 	//TCP SERVER - VALUES ------------------------------------START
 	cpFilename = argv[0];
-
+    
+    int save_errno = 0; //*value for saving errno bevor it will be overritten*/
+    
     int sfd, cfd;
     pid_t childpid;
     
@@ -192,7 +194,7 @@ int main(int argc, const char* argv[])
     
     clientlen = sizeof(struct sockaddr_in);
     
-	// loop
+	// WHILE LOOP - START
 	while (1) {
 		
         
@@ -205,18 +207,16 @@ int main(int argc, const char* argv[])
         
         cfd = accept(sfd, (struct sockaddr *) &clientaddr, &clientlen);
         
-        if (cfd < 0)
-        {
-            if(errno == EWOULDBLOCK || errno == EAGAIN)
-            {
+        if (cfd < 0) {
+            if(errno == EWOULDBLOCK || errno == EAGAIN) { /*The socket is marked nonblocking and no connections 
+                                                           are present to be accepted. */
                 continue;
             } else {
                 fprintf(stderr,"Could not accept connection\n");
                 exit(1);
             }
-            
-         // GERHARD - WEITER MACHEN 11.12.2016
         }       
+        /**------------------------------------------------------------*/
         
         
         /*
@@ -231,38 +231,71 @@ int main(int argc, const char* argv[])
             if (hostaddrp == NULL) fprintf(stderr,"ERROR on inet_ntoa\n");
 
         printf("server established connection with %s (%s)\n",hostp->h_name, hostaddrp);
+        
+        /**------------------------------------------------------------*/
 
         
-        
+        //reset errno
+        errno = 0;
         
 		// fork
 		childpid = fork();
-	
-		// Child process after fork
-		if(childpid == (pid_t) 0)
-		{
-			// exec 
-
-			// close
-	
-		}
-		// Parent process after fork
-		else if (childpid > (pid_t) 0)
-		{
-			// dup2
+        
+        //store errno
+        save_errno =errno;
+        
+        
+		// CHILD process after fork
+		if(childpid == (pid_t) 0) {
 			
 			// close
+            close(sfd);
+            
+            if((dup2(cfd, 1) == -1)) {
+                fprintf(stderr,"Could not write -dup2\n");
+                close(cfd);
+                exit(1);
+            }
+            
+            if((dup2(cfd, 0) == -1)) {
+                fprintf(stderr,"Could not read -dup2\n");
+                close(cfd);
+                exit(1);
+            }
+            
+            //when everything is ok -> exec server logic
+            close(cfd);
+            (void) execl("/usr/local/bin/simple_message_server_logic", "simple_message_server_logic", (char*) NULL);
+            exit(1);
+            
+		}
+		// PARENT process after fork
+		else if (childpid > (pid_t) 0) {
+			//close child socket because parent is in the house
+            close(cfd);
 	
 		}
-		else 
-		{
-			// fork failed
-			exit(1);
+		else {
+			// FORK FAILED
+			
+            if (save_errno == EAGAIN) { /*The system-imposed limit on the total number 
+                                         of processes under execution would be exceeded..
+                                         --> TRY AGAIN -> MAY ME NEXT LOOP IS BETTER*/
+                continue;
+            }
+            
+           //ENOMEM: There is insufficient swap space for the new process
+            close (sfd); //Close Parent Socket
+            close (cfd); //Close Child Socket
+            
+            exit(1);
 		}	
 
-	
+        
+        
+	//WHILE-LOOP-END
 	}
-			   
+	//close(cfd);
 
     return 0;
 }
