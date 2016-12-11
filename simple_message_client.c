@@ -90,7 +90,6 @@ void usage(FILE * stream, const char * message, int errcode)
    
     exit(errcode);
 }
-}
 
 /**
  * \brief function to get socket information and establish connection
