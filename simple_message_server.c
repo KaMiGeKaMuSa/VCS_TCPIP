@@ -60,7 +60,7 @@
  * -------------------------------------------------------------- defines --
  */
 
-
+#define BACKLOG 6
 
 /**
  * -------------------------------------------------------------- global variables --
@@ -78,7 +78,7 @@ void usage(FILE * stream, const char * message, int exitcode);
  */
 int main(int argc, const char* argv[])
 {
-	//SERVER - VALUES ------------------------------------START
+	//TCP SERVER - VALUES ------------------------------------START
 	cpFilename = argv[0];
 
     int sfd, cfd;
@@ -95,7 +95,7 @@ int main(int argc, const char* argv[])
     char *hostaddrp; /* dotted decimal host addr string */
     
     
-    //SERVER - VALUES ------------------------------------END
+    //TCP SERVER - VALUES ------------------------------------END
     
     
     
@@ -167,10 +167,16 @@ int main(int argc, const char* argv[])
      * listen: make this socket ready to accept connection requests
      */
 
+    /*CHECK IF BACKLOG IS BIGGER THAN SOMAXCONN -> IF SO, THAN EXIT -> IS NOT ALLOWED*/
+    if (BACKLOG > SOMAXCONN) {
+        fprintf(stderr,"BACKLOCK VALUE = %d IS BIGGER THAN ALLOWED = %d",BACKLOG,SOMAXCONN);
+        close(sfd);
+        exit(1);
+    }
+    
+    
 	// listen
-	//if (listen(sfd,LISTEN_BACKLOG)==-1)
-    if (listen(sfd,SOMAXCONN)==-1)
-    {
+    if (listen(sfd,BACKLOG)==-1) {
 	   fprintf(stderr,"Could not start listener");
 	   close(sfd);    
 	   exit(1);
@@ -187,21 +193,30 @@ int main(int argc, const char* argv[])
     clientlen = sizeof(struct sockaddr_in);
     
 	// loop
-	for (;;) {
+	while (1) {
 		
         
         /*
          * accept: wait for a connection request
          */
+        
+        //reset errno
+        errno = 0;
+        
         cfd = accept(sfd, (struct sockaddr *) &clientaddr, &clientlen);
         
-        if (cfd == -1)
+        if (cfd < 0)
         {
-            fprintf(stderr,"Could not accept connection");
-            //close(sfd);  ## Nur weil Accept bei einem Client fehl schlaegt, sollte man nicht raus fliegen, oder?
-            //exit(1);
+            if(errno == EWOULDBLOCK || errno == EAGAIN)
+            {
+                continue;
+            } else {
+                fprintf(stderr,"Could not accept connection\n");
+                exit(1);
+            }
+            
+         // GERHARD - WEITER MACHEN 11.12.2016
         }       
-        
         
         
         /*
@@ -263,7 +278,6 @@ int main(int argc, const char* argv[])
  */
 void usage(FILE * stream, const char * message, int errcode)
 {
-    
     //reset errno for checking fprintf()
     errno = 0;
     if (fprintf(stream,
@@ -274,7 +288,6 @@ void usage(FILE * stream, const char * message, int errcode)
         errcode = errno; /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
     }
    
-    
     exit(errcode);
 }
 
