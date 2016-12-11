@@ -103,6 +103,9 @@ int main(int argc, const char* argv[])
 	smc_parsecommandline(argc, argv, &usage, &cpPort);
     
     
+    
+    
+    
     /*
      * socket: create the parent socket
      */
@@ -122,8 +125,7 @@ int main(int argc, const char* argv[])
      * Eliminates "ERROR on binding: Address already in use" error.
      */
     optval = 1;
-    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
-               (const void *)&optval , sizeof(int));
+    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,(const void *)&optval , sizeof(int));
 
     
     
@@ -139,8 +141,11 @@ int main(int argc, const char* argv[])
     /* let the system figure out our IP address */
     peer_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
+    //Char Array to INT
+    int int_cpPort = atoi( cpPort );
+    
     /* this is the port we will listen on */
-    peer_addr.sin_port = htons((unsigned short)cpPort);
+    peer_addr.sin_port = htons((unsigned short)int_cpPort);
 
     
     
