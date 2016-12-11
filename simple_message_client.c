@@ -216,11 +216,8 @@ void readResponse(int *paramISocketFD)
 	FILE* fpReadSocket = NULL;
 	FILE* fpInputFile = NULL;
 	char cBuf[MAX_BUF];
-	int iRecStatus, iRecLength, iIsData = 0;
+	int iRecStatus, iRecLength, iReadlen = 0, iBufLen = 0, iCurrentlyRead = 0;
 	char *cpResponseFilename = NULL;
-	int iReadlen = 0;
-	int iBufLen = 0;
-	int rlen = 0;
 	
 	/* open socket file descriptor in read operation */
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
@@ -233,7 +230,6 @@ void readResponse(int *paramISocketFD)
 		printf("buf = %s\n", cBuf);
 		
 		errno = 0;
-		iIsData = 0;
 			
 		/* check if part of buffered response is status part */
 		if (strncmp(cBuf, "status=", 7) == 0) 
@@ -247,7 +243,6 @@ void readResponse(int *paramISocketFD)
 				}
 			}
 			printf("status = %d\n", iRecStatus);
-			iIsData = 1;
 		}
 		
 		/* check if part of buffered response is filename part */
@@ -270,7 +265,6 @@ void readResponse(int *paramISocketFD)
 				}
 			}
 			printf("filename = %s\n", cpResponseFilename);
-			iIsData = 1;
 		}
 		
 		/* check if part of buffered response is length part */
@@ -284,15 +278,8 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
-			printf("length = %d\n",iRecLength);
-			iIsData = 1;
-		}
-		
-		if (iIsData == 0)
-		{
-			//iReadlen = 0;
-			//iBufLen = 0;
-	
+			
+			/* open file in (w)rite mode -> create file if not exist or clean file and begin at null */
 			if ((fpInputFile = fopen(cpResponseFilename,"w")) ==  NULL)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno));
@@ -300,54 +287,48 @@ void readResponse(int *paramISocketFD)
 				exit(EXIT_FAILURE);
 			}
 			
-
+			/* reset int variables for each file */
+			iReadlen = 0;
+			iBufLen = 0;
+			
+			/* loop until byte-length of file is reached and processed */
 			while (iReadlen < iRecLength)
 			{
+				/* set length of bytes which are need to be read */
 				if ((iRecLength-iReadlen) > MAX_BUF) {
 					iBufLen = MAX_BUF;
 				} else {
 					iBufLen = iRecLength-iReadlen;
 				}
 				
-				rlen = fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
+				/* read from stream... */
+				iCurrentlyRead = fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
+			
+				/* ...and write into file */
+				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
+				{
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
+					fclose(fpInputFile);
+					fclose(fpReadSocket);
+					exit(EXIT_FAILURE);
+				}
 				
-				printf("debug: %s\n", cBuf);
-				printf("debug2: %d\n", rlen);
-				printf("write: %d\n", (int)fwrite(cBuf, sizeof(char), rlen,fpInputFile));
-				//if((fread(cBuf, rlen, fpReadSocket)) != NULL) {
-					if (((int)fwrite(cBuf, sizeof(char), rlen,fpInputFile)) != rlen)
-					{
-						fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
-						fclose(fpInputFile);
-						fclose(fpReadSocket);
-						exit(EXIT_FAILURE);
-					}
-					iReadlen += rlen;
-				//}
+				/* add processed bytes to counter */
+				iReadlen += iCurrentlyRead;
 			}
-			printf("ausser while");
 			
-			//printf("debug: %s - %s",cpResponseFilename,cBuf);
-			
-			/*if ((fwrite(cBuf, sizeof(char), sizeof(cBuf)*sizeof(char),fpInputFile)) == 0)
-			{
-				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
-				fclose(fpInputFile);
-				fclose(fpReadSocket);
-				exit(EXIT_FAILURE);
-			}*/
-			
-			/*if (fflush(fpInputFile) != 0) {
+			/* flush all unwritten data to the stream */
+			if (fflush(fpInputFile) != 0) {
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno));
 				fclose(fpInputFile);
 				exit(EXIT_FAILURE);
-			}*/
-	
+			}
+			
+			/* everything fine - close file pointer */
 			fclose(fpInputFile);
 		}
 	}
 	
 	/* everthing fine - close file pointer */
-	//fclose(fpInputFile);
 	fclose(fpReadSocket);
 }
