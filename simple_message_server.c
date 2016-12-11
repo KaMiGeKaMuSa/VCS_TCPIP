@@ -53,7 +53,9 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
-
+//new included
+#include <netinet/in.h>
+#include <arpa/inet.h>
 /**
  * -------------------------------------------------------------- defines --
  */
@@ -76,20 +78,35 @@ void usage(FILE * stream, const char * message, int exitcode);
  */
 int main(int argc, const char* argv[])
 {
-	//int iSocketFD = NULL;
+	//SERVER - VALUES ------------------------------------START
 	cpFilename = argv[0];
 
+    int sfd, cfd;
+    pid_t childpid;
+    
+    int optval; /* flag value for setsockopt */
+    struct sockaddr_in peer_addr; /* server's addr */
+    
+    
+    struct sockaddr_in clientaddr; /* client addr */
+    struct hostent *hostp; /* client host info */
+    
+    socklen_t clientlen; /* byte size of client's address */
+    char *hostaddrp; /* dotted decimal host addr string */
+    
+    
+    //SERVER - VALUES ------------------------------------END
+    
+    
+    
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
 	smc_parsecommandline(argc, argv, &usage, &cpPort);
-
-	int sfd, cfd;
-	pid_t childpid;
-
-	//openSocket(&iSocketFD);
-	struct sockaddr_in peer_addr;
-	socklen_t peer_addr_size;
-	peer_addr_size = sizeof(struct sockaddr_in);
-	
+    
+    
+    /*
+     * socket: create the parent socket
+     */
+    
 	//socket
 	sfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sfd == -1)
@@ -97,35 +114,107 @@ int main(int argc, const char* argv[])
 	   fprintf(stderr,"Could not create socket");
 	   exit(1);
 	}		   
-			   
-	// bind
-	if (bind(sfd, htons(cpPort), INADDR_ANY) != 0)
-	{
-	   fprintf(stderr,"Could not bind socket");
-	   close(sfd);    
-	   exit(1);
-	}        			   
-			   
+	
+    
+    /* setsockopt: Handy debugging trick that lets
+     * us retun the server immediately after we kill it;
+     * otherwise we have to wait about 20 secs.
+     * Eliminates "ERROR on binding: Address already in use" error.
+     */
+    optval = 1;
+    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
+               (const void *)&optval , sizeof(int));
+
+    
+    
+    
+    /*
+     * build the server's Internet address
+     */
+    bzero((char *) &peer_addr, sizeof(peer_addr));
+    
+    /* this is an Internet address */
+    peer_addr.sin_family = AF_INET;
+    
+    /* let the system figure out our IP address */
+    peer_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    
+    /* this is the port we will listen on */
+    peer_addr.sin_port = htons((unsigned short)cpPort);
+
+    
+    
+    
+    /*
+     * bind: associate the parent socket with a port
+     */
+    
+    // bind
+    if (bind(sfd, (struct sockaddr *) &peer_addr, sizeof(peer_addr)) < 0) {
+        fprintf(stderr,"Could not bind socket");
+        close(sfd);
+        exit(1);
+    }
+    
+    
+    
+    /*
+     * listen: make this socket ready to accept connection requests
+     */
+
 	// listen
-	if (listen(sfd,LISTEN_BACKLOG)==-1) 
-	{
+	//if (listen(sfd,LISTEN_BACKLOG)==-1)
+    if (listen(sfd,SOMAXCONN)==-1)
+    {
 	   fprintf(stderr,"Could not start listener");
 	   close(sfd);    
 	   exit(1);
 	}       
 
+    
+    
+    /*
+     * main loop: wait for a connection request
+     *
+     */
+
+    
+    clientlen = sizeof(struct sockaddr_in);
+    
 	// loop
 	for (;;) {
-		// accept
-		cfd = accept(sfd, (struct sockaddr *) &peer_addr,
-				&peer_addr_size);
-		if (cfd == -1)
-		{
-		   fprintf(stderr,"Could not accept connection");
-		   close(sfd);
-		   exit(1);
-		}       
+		
+        
+        /*
+         * accept: wait for a connection request
+         */
+        cfd = accept(sfd, (struct sockaddr *) &clientaddr, &clientlen);
+        
+        if (cfd == -1)
+        {
+            fprintf(stderr,"Could not accept connection");
+            //close(sfd);  ## Nur weil Accept bei einem Client fehl schlaegt, sollte man nicht raus fliegen, oder?
+            //exit(1);
+        }       
+        
+        
+        
+        /*
+         * gethostbyaddr: determine who sent the message
+         */
+        hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+        
+            if (hostp == NULL) fprintf(stderr,"ERROR on gethostbyaddr");
 
+        hostaddrp = inet_ntoa(clientaddr.sin_addr);
+        
+            if (hostaddrp == NULL) fprintf(stderr,"ERROR on inet_ntoa\n");
+
+        printf("server established connection with %s (%s)\n",hostp->h_name, hostaddrp);
+
+        
+        
+        
 		// fork
 		childpid = fork();
 	
@@ -154,11 +243,7 @@ int main(int argc, const char* argv[])
 	
 	}
 			   
-    //sendRequest(&iSocketFD);
-    
-    //readResponse(&iSocketFD);
-    
-    //close(iSocketFD);
+
     return 0;
 }
 
