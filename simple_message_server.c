@@ -263,7 +263,18 @@ int main(int argc, const char* argv[])
  */
 void usage(FILE * stream, const char * message, int errcode)
 {
-    fprintf(stream, message);
+    
+    //reset errno for checking fprintf()
+    errno = 0;
+    if (fprintf(stream,
+            "\n usage: %s options\n"
+            "options:\n"
+            "        -p, --port <port>       port of the server [0 to 65535]\n"
+            "        -h, --help\n", message) > 0) {
+        errcode = errno; /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
+    }
+   
+    
     exit(errcode);
 }
 
