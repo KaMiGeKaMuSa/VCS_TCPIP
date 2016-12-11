@@ -209,6 +209,9 @@ void readResponse(int *paramISocketFD)
 	char cBuf[MAX_BUF];
 	int iRecStatus, iRecLength, iIsData = 0;
 	char *cpResponseFilename = NULL;
+	int iReadlen = 0;
+	int iBufLen = 0;
+	int rlen = 0;
 	
 	/* open socket file descriptor in read operation */
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
@@ -278,6 +281,9 @@ void readResponse(int *paramISocketFD)
 		
 		if (iIsData == 0)
 		{
+			//iReadlen = 0;
+			//iBufLen = 0;
+	
 			if ((fpInputFile = fopen(cpResponseFilename,"w")) ==  NULL)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno));
@@ -285,21 +291,48 @@ void readResponse(int *paramISocketFD)
 				exit(EXIT_FAILURE);
 			}
 			
-			printf("%s",cBuf);
+
+			while (iReadlen < iRecLength)
+			{
+				if ((iRecLength-iReadlen) > MAX_BUF) {
+					iBufLen = MAX_BUF;
+				} else {
+					iBufLen = iRecLength-iReadlen;
+				}
+				
+				rlen = fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
+				
+				printf("debug: %s\n", cBuf);
+				printf("debug2: %d\n", rlen);
+				printf("write: %d\n", (int)fwrite(cBuf, sizeof(char), rlen,fpInputFile));
+				//if((fread(cBuf, rlen, fpReadSocket)) != NULL) {
+					if (((int)fwrite(cBuf, sizeof(char), rlen,fpInputFile)) != rlen)
+					{
+						fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
+						fclose(fpInputFile);
+						fclose(fpReadSocket);
+						exit(EXIT_FAILURE);
+					}
+					iReadlen += rlen;
+				//}
+			}
+			printf("ausser while");
 			
-			if ((fwrite(cBuf, sizeof(char), sizeof(cBuf),fpInputFile)) == 0)
+			//printf("debug: %s - %s",cpResponseFilename,cBuf);
+			
+			/*if ((fwrite(cBuf, sizeof(char), sizeof(cBuf)*sizeof(char),fpInputFile)) == 0)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
 				fclose(fpInputFile);
 				fclose(fpReadSocket);
 				exit(EXIT_FAILURE);
-			}
+			}*/
 			
-			if (fflush(fpInputFile) != 0) {
+			/*if (fflush(fpInputFile) != 0) {
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno));
 				fclose(fpInputFile);
 				exit(EXIT_FAILURE);
-			}
+			}*/
 	
 			fclose(fpInputFile);
 		}
