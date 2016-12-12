@@ -13,7 +13,7 @@
  *
  * URL: $HeadURL$
  *
- * Last Modified: $Author: Karin $
+ * Last Modified: $Author: Gerhard $
  */
 
 
@@ -103,8 +103,6 @@ int main(int argc, const char* argv[])
     
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
 	smc_parsecommandline(argc, argv, &usage, &cpPort);
-    
-    
     
     
     
@@ -211,6 +209,7 @@ int main(int argc, const char* argv[])
             if(errno == EWOULDBLOCK || errno == EAGAIN) { /*The socket is marked nonblocking and no connections 
                                                            are present to be accepted. */
                 continue;
+            
             } else {
                 fprintf(stderr,"Could not accept connection\n");
                 exit(1);
@@ -251,11 +250,6 @@ int main(int argc, const char* argv[])
 			// close
             close(sfd);
             
-            if((dup2(cfd, 1) == -1)) {
-                fprintf(stderr,"Could not write -dup2\n");
-                close(cfd);
-                exit(1);
-            }
             
             if((dup2(cfd, 0) == -1)) {
                 fprintf(stderr,"Could not read -dup2\n");
@@ -263,6 +257,12 @@ int main(int argc, const char* argv[])
                 exit(1);
             }
             
+            if((dup2(cfd, 1) == -1)) {
+                fprintf(stderr,"Could not write -dup2\n");
+                close(cfd);
+                exit(1);
+            }
+
             //when everything is ok -> exec server logic
             close(cfd);
             (void) execl("/usr/local/bin/simple_message_server_logic", "simple_message_server_logic", (char*) NULL);
@@ -295,8 +295,8 @@ int main(int argc, const char* argv[])
         
 	//WHILE-LOOP-END
 	}
+    
 	//close(cfd);
-
     return 0;
 }
 
