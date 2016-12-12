@@ -43,6 +43,7 @@ int iVerbose = 0;
  * --------------------------------------------------- function prototypes --
  */
 void usage(FILE * stream, const char * message, int exitcode);
+void verbose(const char * message);
 void openSocket(int *paramISocketFD);
 void sendRequest(int *paramISocketFD);
 void readResponse(int *paramISocketFD);
@@ -83,12 +84,27 @@ void usage(FILE * stream, const char * message, int errcode)
     if (fprintf(stream,
             "\n usage: %s options\n"
             "options:\n"
+			"		 -s, --server  <server>       IP address (IPv4 or IPv6) of server\n"
             "        -p, --port <port>       port of the server [0 to 65535]\n"
+			"        -u, --user <user>		 username for the message submission\n"
+			"		 -i, --image <image URL>       image url for the submitting user\n"
+			"        -m, --message <message>	   message to submit to bulletin board\n"
+			"        -v, --verbose	   trace information to stdout\n"
             "        -h, --help\n", message) > 0) {
-        errcode = errno; /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
+        /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
+		errcode = errno; 
     }
    
     exit(errcode);
+}
+
+void verbose(const char * message) 
+{	
+	if(iVerbose) {
+		if(!printf("%s: %s\n", cpFilename, message)) {
+			fprintf(stderr,"Error on printf.\n");
+		}
+	}	
 }
 
 /**
@@ -100,7 +116,9 @@ void openSocket(int *paramISocketFD)
 {
 	struct addrinfo hints, *socket_address, *rp;
 	int iRetValue;
-		
+	
+	verbose("Try to connect to socket");
+	
 	/* set memory for struct hints */
 	memset(&hints, 0, sizeof hints);
 	
@@ -148,6 +166,8 @@ void openSocket(int *paramISocketFD)
 	
 	/* socket address info are no longer needed */
 	freeaddrinfo(socket_address);   
+	
+	verbose("Successful connected to socket");
 }
 
 /**
@@ -159,13 +179,17 @@ void sendRequest(int *paramISocketFD)
 {
 	FILE* fpWriteSocket = NULL;
 	
+	verbose("Try to send request to server");
+	
 	/* open socket file descriptor */
+	verbose("Open stream for writing");
 	if ((fpWriteSocket = fdopen(*paramISocketFD, "w")) == NULL) {
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 	
 	/* write user to stream */
+	verbose("Write user into stream");
 	if (fprintf(fpWriteSocket,"user=%s\n",cpUser) < 0) {
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
 		fclose(fpWriteSocket);
@@ -174,6 +198,7 @@ void sendRequest(int *paramISocketFD)
 	
 	/* if img exist: write image to sream */
 	if (cpImage != NULL) {
+		verbose("Write image into stream");
 		if (fprintf(fpWriteSocket,"img=%s\n", cpImage) < 0) {
 			fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
 			fclose(fpWriteSocket);
@@ -182,6 +207,7 @@ void sendRequest(int *paramISocketFD)
 	}
 	
 	/* write message to stream */
+	verbose("Write message into stream");
 	if (fprintf(fpWriteSocket,"%s\n", cpMessage) < 0) {
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
 		fclose(fpWriteSocket);
@@ -196,6 +222,7 @@ void sendRequest(int *paramISocketFD)
 	}
 	
 	/* after writing: disable write operations for socket */
+	verbose("Close write direction of stream");
 	if (shutdown(*paramISocketFD,SHUT_WR) != 0) {
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "shutdown()", strerror(errno));
 		fclose(fpWriteSocket);
@@ -203,6 +230,7 @@ void sendRequest(int *paramISocketFD)
 	}
 	
 	/* everthing fine - close file pointer */
+	verbose("Succesful sent request to server");
 	/* fclose(fpWriteSocket); */
 }
 
@@ -219,7 +247,10 @@ void readResponse(int *paramISocketFD)
 	int iRecStatus, iRecLength, iReadlen = 0, iBufLen = 0, iCurrentlyRead = 0;
 	char *cpResponseFilename = NULL;
 	
+	verbose("Try to parse response of server");
+	
 	/* open socket file descriptor in read operation */
+	verbose("Open stream for reading");
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno));
 		exit(EXIT_FAILURE);
@@ -227,14 +258,13 @@ void readResponse(int *paramISocketFD)
 	
 	/* loop over response */
 	while(fgets(cBuf, MAX_BUF, fpReadSocket)) {
-		printf("buf = %s\n", cBuf);
-		
 		errno = 0;
 			
 		/* check if part of buffered response is status part */
 		if (strncmp(cBuf, "status=", 7) == 0) 
 		{
 			/* get status of response */
+			verbose("Parse status of response");
 			if (sscanf(cBuf,"status=%d",&iRecStatus) == 0) {
 				if (errno != 0) {
 					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"status could not be scanned");
@@ -242,7 +272,6 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
-			printf("status = %d\n", iRecStatus);
 		}
 		
 		/* check if part of buffered response is filename part */
@@ -257,6 +286,7 @@ void readResponse(int *paramISocketFD)
 			}
 			
 			/* get filename of response */
+			verbose("Parse filename of response");
 			if (sscanf(cBuf,"file=%s",cpResponseFilename) == 0) {
 				if (errno != 0) {
 					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"file could not be scanned");
@@ -264,13 +294,13 @@ void readResponse(int *paramISocketFD)
 					exit(EXIT_FAILURE);
 				}
 			}
-			printf("filename = %s\n", cpResponseFilename);
 		}
 		
 		/* check if part of buffered response is length part */
 		if (strncmp(cBuf, "len=", 4) == 0) 
 		{
 			/* get bytes-length of file */
+			verbose("Parse length of response file");
 			if (sscanf(cBuf,"len=%d",&iRecLength) == 0) {
 				if (errno != 0) {
 					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"len could not be scanned");
@@ -280,6 +310,7 @@ void readResponse(int *paramISocketFD)
 			}
 			
 			/* open file in (w)rite mode -> create file if not exist or clean file and begin at null */
+			verbose("Open response file in write mode");
 			if ((fpInputFile = fopen(cpResponseFilename,"w")) ==  NULL)
 			{
 				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno));
@@ -325,10 +356,12 @@ void readResponse(int *paramISocketFD)
 			}
 			
 			/* everything fine - close file pointer */
+			verbose("Successful processed response file");
 			fclose(fpInputFile);
 		}
 	}
 	
 	/* everthing fine - close file pointer */
+	verbose("Successful processed response");
 	fclose(fpReadSocket);
 }
