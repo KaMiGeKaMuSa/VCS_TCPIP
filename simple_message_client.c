@@ -59,11 +59,13 @@ int main(int argc, const char* argv[])
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
 	smc_parsecommandline(argc, argv, &usage, &cpServer, &cpPort, &cpUser, &cpMessage, &cpImage, &iVerbose);
 
-	
+	/* function to connect to server */
 	openSocket(&iSocketFD);   
 	
+	/* function to write request into stream socket */
 	sendRequest(&iSocketFD);
 
+	/* function to parse response into files */
 	readResponse(&iSocketFD);
 	
 	close(iSocketFD);
