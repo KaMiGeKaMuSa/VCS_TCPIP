@@ -135,7 +135,7 @@ int main(int argc, const char* argv[])
     /*
      * build the server's Internet address
      */
-    bzero((char *) &peer_addr, sizeof(peer_addr));
+    bzero((char *) &peer_addr, sizeof(peer_addr)); //write zeroes to a byte string
     
     /* this is an Internet address */
     peer_addr.sin_family = AF_INET;
@@ -143,7 +143,7 @@ int main(int argc, const char* argv[])
     /* let the system figure out our IP address */
     peer_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
-    //Char Array to INT
+    //Convert char Array to INT
     int int_cpPort = atoi( cpPort );
     
     /* this is the port we will listen on */
