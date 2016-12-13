@@ -53,7 +53,7 @@ void readResponse(int *paramISocketFD);
  */
 int main(int argc, const char* argv[])
 {	
-	int iSocketFD = NULL;
+    int iSocketFD;
 	cpFilename = argv[0];
 	
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
@@ -122,7 +122,7 @@ void openSocket(int *paramISocketFD)
 	verbose("Try to connect to socket");
 	
 	/* set memory for struct hints */
-	memset(&hints, 0, sizeof hints);
+	memset(&hints, 0, sizeof hints); //fill a byte string with a byte value
 	
 	/* 
 	*	AI_FAMILY - valid values:
@@ -161,7 +161,7 @@ void openSocket(int *paramISocketFD)
 	   close(*paramISocketFD);
     }
 	
-	if (rp == NULL) {
+	if (rp == NULL || paramISocketFD == NULL) { //CHANGE GERHARD
 		fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),connect()", "no address succeeded");
 		exit(EXIT_FAILURE);
 	}
@@ -335,7 +335,7 @@ void readResponse(int *paramISocketFD)
 				}
 				
 				/* read from stream... */
-				iCurrentlyRead = fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
+				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
 			
 				/* ...and write into file */
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)

@@ -280,7 +280,7 @@ int main(int argc, const char* argv[])
 			
             if (save_errno == EAGAIN) { /*The system-imposed limit on the total number 
                                          of processes under execution would be exceeded..
-                                         --> TRY AGAIN -> MAY ME NEXT LOOP IS BETTER*/
+                                         --> TRY AGAIN -> MAYBE NEXT LOOP IS BETTER*/
                 continue;
             }
             
