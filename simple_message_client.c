@@ -339,7 +339,7 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				/* read from stream... */
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
 				char buffer[55];
-				itoa(iCurrentlyRead,buffer,10);
+				sprintf(buffer,"%d",iCurrentlyRead);
 			verbose(buffer);
 				/* ...and write into file */
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
