@@ -338,9 +338,14 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				
 				/* read from stream... */
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
-				char buffer[55];
-				sprintf(buffer,"%d",iCurrentlyRead);
-			verbose(buffer);
+				
+				if (iCurrentlyRead == 0) {
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fread()", "No bytes read");
+					fclose(fpInputFile);
+					fclose(fpReadSocket);
+					exit(EXIT_FAILURE);
+				}
+			
 				/* ...and write into file */
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
 				{
