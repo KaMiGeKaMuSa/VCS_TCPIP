@@ -329,6 +329,7 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			/* loop until byte-length of file is reached and processed */
 			while (iReadlen < iRecLength)
 			{
+				verbose("debug");
 				/* set length of bytes which are need to be read */
 				if ((iRecLength-iReadlen) > MAX_BUF) {
 					iBufLen = MAX_BUF;
