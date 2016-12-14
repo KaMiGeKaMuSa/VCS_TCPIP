@@ -338,7 +338,9 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				
 				/* read from stream... */
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
-			verbose((char *)iCurrentlyRead);
+				char buffer[55];
+				itoa(iCurrentlyRead,buffer,10);
+			verbose(buffer);
 				/* ...and write into file */
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
 				{
