@@ -329,7 +329,6 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			/* loop until byte-length of file is reached and processed */
 			while (iReadlen < iRecLength)
 			{
-				verbose("debug");
 				/* set length of bytes which are need to be read */
 				if ((iRecLength-iReadlen) > MAX_BUF) {
 					iBufLen = MAX_BUF;
@@ -339,7 +338,7 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				
 				/* read from stream... */
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
-			
+			verbose((char *)iCurrentlyRead);
 				/* ...and write into file */
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
 				{
