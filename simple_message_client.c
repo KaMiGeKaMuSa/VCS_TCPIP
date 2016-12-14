@@ -5,7 +5,7 @@
  * @author Karin Kalman <karin.kalman@technikum-wien.at>
  * @author Michael Mueller <michael.mueller@technikum-wien.at>
  * @author Gerhard Sabeditsch <gerhard.sabeditsch@technikum-wien.at>
- * @date 2016/12/02
+ * @date 2016/12/14
  *
  * @version $Revision: 1 $
  *
@@ -45,8 +45,8 @@ int iVerbose = 0;
 void usage(FILE * stream, const char * message, int exitcode);
 void verbose(const char * message);
 void openSocket(int *paramISocketFD);
-void sendRequest(int *paramISocketFD);
-void readResponse(int *paramISocketFD);
+void sendRequest(int *paramISocketFD, FILE* fpWriteSocket);
+void readResponse(int *paramISocketFD, FILE* fpReadSocket);
 
  /**
  * ------------------------------------------------------------- main --
@@ -55,6 +55,8 @@ int main(int argc, const char* argv[])
 {	
     int iSocketFD;
 	cpFilename = argv[0];
+	FILE* fpWriteSocket = NULL;
+	FILE* fpReadSocket = NULL;
 	
 	/* function to parse parameter provided by Thomas M. Galla, Christian Fibich*/
 	smc_parsecommandline(argc, argv, &usage, &cpServer, &cpPort, &cpUser, &cpMessage, &cpImage, &iVerbose);
@@ -63,10 +65,14 @@ int main(int argc, const char* argv[])
 	openSocket(&iSocketFD);   
 	
 	/* function to write request into stream socket */
-	sendRequest(&iSocketFD);
+	sendRequest(&iSocketFD, fpWriteSocket);
 
 	/* function to parse response into files */
-	readResponse(&iSocketFD);
+	readResponse(&iSocketFD, fpReadSocket);
+	
+	/* everthing fine - close file pointer */
+	fclose(fpWriteSocket);
+	fclose(fpReadSocket);
 	
 	close(iSocketFD);
 	return 0;
@@ -177,9 +183,8 @@ void openSocket(int *paramISocketFD)
  *
  * \param paramISocketFD - socket file descriptor to the address
  */
-void sendRequest(int *paramISocketFD) 
+void sendRequest(int *paramISocketFD, FILE* fpWriteSocket) 
 {
-	FILE* fpWriteSocket = NULL;
 	
 	verbose("Try to send request to server");
 	
@@ -231,9 +236,7 @@ void sendRequest(int *paramISocketFD)
 		exit(EXIT_FAILURE);
 	}
 	
-	/* everthing fine - close file pointer */
 	verbose("Succesful sent request to server");
-	/* fclose(fpWriteSocket); */
 }
 
 /**
@@ -241,9 +244,8 @@ void sendRequest(int *paramISocketFD)
  *
  * \param paramISocketFD - socket file descriptor to the address
  */
-void readResponse(int *paramISocketFD) 
+void readResponse(int *paramISocketFD, FILE* fpReadSocket) 
 {
-	FILE* fpReadSocket = NULL;
 	FILE* fpInputFile = NULL;
 	char cBuf[MAX_BUF];
 	int iRecStatus, iRecLength, iReadlen = 0, iBufLen = 0, iCurrentlyRead = 0;
@@ -363,7 +365,5 @@ void readResponse(int *paramISocketFD)
 		}
 	}
 	
-	/* everthing fine - close file pointer */
 	verbose("Successful processed response");
-	fclose(fpReadSocket);
 }
