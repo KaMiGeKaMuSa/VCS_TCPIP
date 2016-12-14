@@ -339,8 +339,9 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				/* read from stream... */
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
 				
+				/* network problems because no bytes read */
 				if (iCurrentlyRead == 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fread()", "No bytes read");
+					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fread()", "Cannot read from socket");
 					fclose(fpInputFile);
 					fclose(fpReadSocket);
 					exit(EXIT_FAILURE);
