@@ -384,7 +384,18 @@ int main(int argc, const char* argv[])
             }
 
             
-            (void) execl("/usr/local/bin/simple_message_server_logic", "simple_message_server_logic", (char*) NULL);
+            if( execl("/usr/local/bin/simple_message_server_logic", "simple_message_server_logic", (char*) NULL)< 0) {
+                //RESET save_errno
+                save_errno = 0;
+
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-fork()-simple_message_server_logic()", "Could not START simple_message_server_logic properly") < 0) save_errno= errno;
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
+                exit(1);
+                
+            }
+            
             exit(1);
             
             
