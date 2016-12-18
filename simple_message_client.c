@@ -38,6 +38,7 @@
  */
 const char *cpServer, *cpPort, *cpUser, *cpMessage, *cpImage, *cpFilename;
 int iVerbose = 0;
+int save_errno = 0;
 
 /**
  * --------------------------------------------------- function prototypes --
@@ -70,15 +71,11 @@ int main(int argc, const char* argv[])
 	/* function to parse response into files */
 	readResponse(&iSocketFD, fpReadSocket);
 	
-	/* everthing fine - close file pointer if they were already opened*/
+	/* everthing fine - close file pointer if they were already open*/
     if ( fpWriteSocket != NULL) fclose(fpWriteSocket);
-	
     if ( fpReadSocket != NULL) fclose(fpReadSocket);
 	
-
 	close(iSocketFD);
-    
-
     
 	return 0;
 }
@@ -97,10 +94,10 @@ void usage(FILE * stream, const char * message, int errcode)
     if (fprintf(stream,
             "\n usage: %s options\n"
             "options:\n"
-			"		 -s, --server  <server>       IP address (IPv4 or IPv6) of server\n"
+			"        -s, --server  <server>       IP address (IPv4 or IPv6) of server\n"
             "        -p, --port <port>       port of the server [0 to 65535]\n"
 			"        -u, --user <user>		 username for the message submission\n"
-			"		 -i, --image <image URL>       image url for the submitting user\n"
+			"        -i, --image <image URL>       image url for the submitting user\n"
 			"        -m, --message <message>	   message to submit to bulletin board\n"
 			"        -v, --verbose	   trace information to stdout\n"
             "        -h, --help\n", message) < 0) {
@@ -155,8 +152,16 @@ void openSocket(int *paramISocketFD)
 	
 	/* get address info of socket */
 	if ((iRetValue = getaddrinfo(cpServer, cpPort, &hints, &socket_address)) != 0) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "getaddrinfo()", strerror(errno));
-		exit(EXIT_FAILURE);
+        
+        //RESET save_errno
+        save_errno = 0;
+        
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "getaddrinfo()", strerror(errno)) < 0) save_errno= errno;
+		
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+        exit(EXIT_FAILURE);
 	}
 	
 	/* loop over socket address linked list */
@@ -172,9 +177,19 @@ void openSocket(int *paramISocketFD)
 	   close(*paramISocketFD);
     }
 	
-	if (rp == NULL || paramISocketFD == NULL) { //CHANGE GERHARD
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),connect()", "no address succeeded");
+	if (rp == NULL || paramISocketFD == NULL) {
+		
+        //RESET save_errno
+        save_errno = 0;
+        
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),connect()", "no address succeeded") < 0) save_errno= errno;
+
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
 		exit(EXIT_FAILURE);
+        
+        
 	}
 	
 	/* socket address info are no longer needed */
@@ -196,24 +211,62 @@ void sendRequest(int *paramISocketFD, FILE* fpWriteSocket)
 	/* open socket file descriptor */
 	verbose("Open stream for writing");
 	if ((fpWriteSocket = fdopen(*paramISocketFD, "w")) == NULL) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno));
+        
+        //RESET save_errno
+        save_errno = 0;
+        
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno)) < 0) save_errno= errno;
+
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
 		exit(EXIT_FAILURE);
+        
 	}
 	
 	/* write user to stream */
 	verbose("Write user into stream");
 	if (fprintf(fpWriteSocket,"user=%s\n",cpUser) < 0) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
-		fclose(fpWriteSocket);
+
+        //RESET save_errno
+        save_errno = 0;
+
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno)) < 0) save_errno= errno;
+
+    //close write file pointer
+        if (fclose(fpWriteSocket) < 0) {
+            //ERROR MESSAGE
+            if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Write File Pointer", strerror(errno)) < 0) save_errno= errno;
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
 		exit(EXIT_FAILURE);
 	}
 	
+    
 	/* if img exist: write image to sream */
 	if (cpImage != NULL) {
 		verbose("Write image into stream");
 		if (fprintf(fpWriteSocket,"img=%s\n", cpImage) < 0) {
-			fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
-			fclose(fpWriteSocket);
+			
+            //RESET save_errno
+            save_errno = 0;
+
+            //ERROR MESSAGE
+            if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno)) < 0) save_errno= errno;
+
+    //close write file pointer
+            if (fclose(fpWriteSocket) < 0) {
+                
+                //ERROR MESSAGE
+                if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Write File Pointer", strerror(errno)) < 0) save_errno= errno;
+            
+            }
+            
+            //EXIT LOGIC
+            if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -221,24 +274,74 @@ void sendRequest(int *paramISocketFD, FILE* fpWriteSocket)
 	/* write message to stream */
 	verbose("Write message into stream");
 	if (fprintf(fpWriteSocket,"%s\n", cpMessage) < 0) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno));
-		fclose(fpWriteSocket);
-		exit(EXIT_FAILURE);
+		
+        //RESET save_errno
+        save_errno = 0;
+     
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fprintf()", strerror(errno)) < 0) save_errno= errno;
+
+        
+    //close write file pointer
+        if (fclose(fpWriteSocket) < 0) {
+            
+            //ERROR MESSAGE
+            if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Write File Pointer", strerror(errno)) < 0) save_errno= errno;
+            
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+        exit(EXIT_FAILURE);
+
 	}
 	
 	/* flush all unwritten data to the stream */
 	if (fflush(fpWriteSocket) != 0) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno));
-		fclose(fpWriteSocket);
-		exit(EXIT_FAILURE);
+		
+        //RESET save_errno
+        save_errno = 0;
+       
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno)) < 0) save_errno= errno;
+
+
+    //close write file pointer
+        if (fclose(fpWriteSocket) < 0) {
+            
+            //ERROR MESSAGE
+            if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Write File Pointer", strerror(errno)) < 0) save_errno= errno;
+            
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+        exit(EXIT_FAILURE);
 	}
 	
 	/* after writing: disable write operations for socket */
 	verbose("Close write direction of stream");
 	if (shutdown(*paramISocketFD,SHUT_WR) != 0) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "shutdown()", strerror(errno));
-		fclose(fpWriteSocket);
-		exit(EXIT_FAILURE);
+		
+        //RESET save_errno
+        save_errno = 0;
+        
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "shutdown()", strerror(errno)) < 0) save_errno= errno;
+        
+        
+    //close write file pointer
+        if (fclose(fpWriteSocket) < 0) {
+            
+            //ERROR MESSAGE
+            if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Write File Pointer", strerror(errno)) < 0) save_errno= errno;
+            
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+        exit(EXIT_FAILURE);
+        
 	}
 	
 	verbose("Succesful sent request to server");
@@ -261,13 +364,23 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 	/* open socket file descriptor in read operation */
 	verbose("Open stream for reading");
 	if ((fpReadSocket = fdopen(*paramISocketFD, "r")) == NULL) {
-		fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno));
+		
+        //RESET save_errno
+        save_errno = 0;
+        
+        //ERROR MESSAGE
+        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fdopen()", strerror(errno)) < 0) save_errno= errno;
+
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
 		exit(EXIT_FAILURE);
+        
 	}
 	
 	/* loop over response */
 	while(fgets(cBuf, MAX_BUF, fpReadSocket)) {
-		errno = 0;
+		//reset errno
+        errno = 0;
 			
 		/* check if part of buffered response is status part */
 		if (strncmp(cBuf, "status=", 7) == 0) 
@@ -276,9 +389,25 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			verbose("Parse status of response");
 			if (sscanf(cBuf,"status=%d",&iRecStatus) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"status could not be scanned");
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
+					
+                    //RESET save_errno
+                    save_errno = 0;
+
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"status could not be scanned") < 0) save_errno= errno;
+
+                    
+                //close read file pointer
+                    if (fclose(fpReadSocket) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+
+                    //EXIT LOGIC
+                    if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                    exit(EXIT_FAILURE);
 				}
 			}
 		}
@@ -289,18 +418,54 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			/* malloc for length of cbuf - "file=" and \n char at the end of the line */
 			if ((cpResponseFilename = malloc((strlen(cBuf) - 6) * sizeof(char))) == NULL)
 			{
-				fprintf(stderr,"%s - %s: %s\n", cpFilename, "malloc()", strerror(errno));
-				fclose(fpReadSocket);
-				exit(EXIT_FAILURE);
+                
+                
+                //RESET save_errno
+                save_errno = 0;
+                
+                //ERROR MESSAGE
+                if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "malloc()", strerror(errno)) < 0) save_errno= errno;
+                
+                
+            //close read file pointer
+                if (fclose(fpReadSocket) < 0) {
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                    
+                }
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                exit(EXIT_FAILURE);
+
 			}
 			
 			/* get filename of response */
 			verbose("Parse filename of response");
 			if (sscanf(cBuf,"file=%s",cpResponseFilename) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"file could not be scanned");
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
+					
+                    
+                    //RESET save_errno
+                    save_errno = 0;
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"file could not be scanned") < 0) save_errno= errno;
+                    
+                    
+                //close read file pointer
+                    if (fclose(fpReadSocket) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+                    
+                    //EXIT LOGIC
+                    if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                    exit(EXIT_FAILURE);
+
 				}
 			}
 		}
@@ -312,9 +477,26 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			verbose("Parse length of response file");
 			if (sscanf(cBuf,"len=%d",&iRecLength) == 0) {
 				if (errno != 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"len could not be scanned");
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
+					
+                    //RESET save_errno
+                    save_errno = 0;
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "sscanf()", /*strerror(errno)*/"file could not be scanned") < 0) save_errno= errno;
+                    
+                    
+                    //close read file pointer
+                    if (fclose(fpReadSocket) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+                    
+                    //EXIT LOGIC
+                    if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                    exit(EXIT_FAILURE);
+
 				}
 			}
 			
@@ -322,9 +504,27 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			verbose("Open response file in write mode");
 			if ((fpInputFile = fopen(cpResponseFilename,"w")) ==  NULL)
 			{
-				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno));
-				fclose(fpReadSocket);
-				exit(EXIT_FAILURE);
+				
+                
+                //RESET save_errno
+                save_errno = 0;
+                
+                //ERROR MESSAGE
+                if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fopen()", strerror(errno)) < 0) save_errno= errno;
+                
+                
+                //close read file pointer
+                if (fclose(fpReadSocket) < 0) {
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                    
+                }
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                exit(EXIT_FAILURE);
+
 			}
 			
 			/* reset int variables for each file */
@@ -340,25 +540,77 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 				} else {
 					iBufLen = iRecLength-iReadlen;
 				}
-				
-				/* read from stream... */
+			//
+            /* read from stream... */
+            //
 				iCurrentlyRead = (int) fread(cBuf, sizeof(char),iBufLen,fpReadSocket);
 				
 				/* network problems because no bytes read */
 				if (iCurrentlyRead == 0) {
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fread()", "Cannot read from socket");
-					fclose(fpInputFile);
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
+					
+                    //RESET save_errno
+                    save_errno = 0;
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fread()", "Cannot read from socket") < 0) save_errno= errno;
+                    
+                
+                //close inputfile file pointer
+                    if (fclose(fpInputFile) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close fpInputFile File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+
+                    
+                //close read file pointer
+                    if (fclose(fpReadSocket) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+                    
+                    //EXIT LOGIC
+                    if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                    exit(EXIT_FAILURE);
+
 				}
 			
-				/* ...and write into file */
+            //
+            /* ...and write into file */
+            //
 				if (((int)fwrite(cBuf, sizeof(char), iCurrentlyRead,fpInputFile)) != iCurrentlyRead)
 				{
-					fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno));
-					fclose(fpInputFile);
-					fclose(fpReadSocket);
-					exit(EXIT_FAILURE);
+                    //RESET save_errno
+                    save_errno = 0;
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fwrite()", strerror(errno)) < 0) save_errno= errno;
+
+                    
+                //close inputfile file pointer
+                    if (fclose(fpInputFile) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close fpInputFile File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+                    
+                    
+                //close read file pointer
+                    if (fclose(fpReadSocket) < 0) {
+                        
+                        //ERROR MESSAGE
+                        if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close Read File Pointer", strerror(errno)) < 0) save_errno= errno;
+                        
+                    }
+                    
+                    //EXIT LOGIC
+                    if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                    exit(EXIT_FAILURE);
+
 				}
 				
 				/* add processed bytes to counter */
@@ -367,14 +619,46 @@ void readResponse(int *paramISocketFD, FILE* fpReadSocket)
 			
 			/* flush all unwritten data to the stream */
 			if (fflush(fpInputFile) != 0) {
-				fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno));
-				fclose(fpInputFile);
-				exit(EXIT_FAILURE);
+				
+                
+                //RESET save_errno
+                save_errno = 0;
+                
+                //ERROR MESSAGE
+                if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fflush()", strerror(errno)) < 0) save_errno= errno;
+
+               
+            //close inputfile file pointer
+                if (fclose(fpInputFile) < 0) {
+                    
+                    //ERROR MESSAGE
+                    if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close fpInputFile File Pointer", strerror(errno)) < 0) save_errno= errno;
+                    
+                }
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                exit(EXIT_FAILURE);
 			}
 			
+            
+            
 			/* everything fine - close file pointer */
 			verbose("Successful processed response file");
-			fclose(fpInputFile);
+		
+            
+        //close inputfile file pointer
+            if (fclose(fpInputFile) < 0) {
+                
+                //ERROR MESSAGE
+                if (fprintf(stderr,"%s - %s: %s\n", cpFilename, "fclose() - could not close fpInputFile File Pointer", strerror(errno)) < 0) save_errno= errno;
+                
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
+                exit(EXIT_FAILURE);
+            }
+            
 		}
 	}
 	

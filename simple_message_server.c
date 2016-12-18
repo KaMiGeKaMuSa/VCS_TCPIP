@@ -30,9 +30,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
-//new included
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
 /**
  * -------------------------------------------------------------- defines --
  */
@@ -155,7 +153,7 @@ int main(int argc, const char* argv[])
         }
         
         //EXIT LOGIC
-        if (save_errno != 0) exit (save_errno); //Wenn save_errno ungleich 0, dann exit mit save_errno -> andernfalls mit normalen exit fehler
+        if (save_errno != 0) exit (save_errno); //If save_errno is not 0, than exit with save_errno -> otherwise exit with normal failure
         exit(1);
         
     }
@@ -256,23 +254,6 @@ int main(int argc, const char* argv[])
                 
             }
         }       
-        /**------------------------------------------------------------*/
-        
-        
-        /*
-         * gethostbyaddr: determine who sent the message
-         */
-        hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-        
-            if (hostp == NULL) fprintf(stderr,"ERROR on gethostbyaddr");
-
-        hostaddrp = inet_ntoa(clientaddr.sin_addr);
-        
-            if (hostaddrp == NULL) fprintf(stderr,"ERROR on inet_ntoa\n");
-
-        printf("server established connection with %s (%s)\n",hostp->h_name, hostaddrp);
-        
-        /**------------------------------------------------------------*/
 
         
         //reset errno
