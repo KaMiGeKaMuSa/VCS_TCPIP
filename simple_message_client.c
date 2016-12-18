@@ -70,25 +70,15 @@ int main(int argc, const char* argv[])
 	/* function to parse response into files */
 	readResponse(&iSocketFD, fpReadSocket);
 	
-	/* everthing fine - close file pointer */
+	/* everthing fine - close file pointer if they were already opened*/
+    if ( fpWriteSocket != NULL) fclose(fpWriteSocket);
 	
-    verbose("Try to close FILE Pointer - WriteSocket");
-    
-    fclose(fpWriteSocket);
+    if ( fpReadSocket != NULL) fclose(fpReadSocket);
 	
-    verbose("FILE Pointer - WriteSocket - closed");
-    
-    verbose("Try to close FILE Pointer - ReadSocket");
-    
-    fclose(fpReadSocket);
-	
-    verbose("FILE Pointer - ReadSocket - closed");
-    
-    verbose("Try to close - SOCKET");
-    
+
 	close(iSocketFD);
     
-    verbose("SOCKET CLOSED");
+
     
 	return 0;
 }
