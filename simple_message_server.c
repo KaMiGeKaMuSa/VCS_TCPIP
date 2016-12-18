@@ -17,29 +17,6 @@
  */
 
 
-/***** COMMENTS: *********
- socket (AF_INET, SOCK_STREAM, 0)
- bind
- listen
-	accept
-	fork
- dup2 für stdin und stdout
-	exec (businesslogic ausführen)
- close für stdin und stdout
-	close
- 
- getopt für port
- bind bsp in manpage von ip(7)
- struct sockaddr_in:
-	- sa_family = AF_INET;
-	- sin_port = htans(portnummer)
-	- sin_addr = INADDR_ANY
-	
- setsockopt(SOL_REUSEADDR,1)
- 
- */
-
-
 
 /**
  * -------------------------------------------------------------- includes --
@@ -66,6 +43,7 @@
  * -------------------------------------------------------------- global variables --
  */
 const char *cpPort, *cpFilename;
+int save_errno;
 
 /**
  * --------------------------------------------------- function prototypes --
@@ -81,7 +59,7 @@ int main(int argc, const char* argv[])
 	//TCP SERVER - VALUES ------------------------------------START
 	cpFilename = argv[0];
     
-    int save_errno = 0; //*value for saving errno bevor it will be overritten*/
+    save_errno = 0; //*value for saving errno bevor it will be overritten*/
     
     int sfd, cfd;
     pid_t childpid;
@@ -112,23 +90,30 @@ int main(int argc, const char* argv[])
     
 	//socket
 	sfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sfd == -1)
-	{
-	   fprintf(stderr,"Could not create socket");
-	   exit(1);
+	if (sfd == -1) {
+	  
+        //RESET save_errno
+        save_errno = 0;
+        
+        //MAIN ERROR MESSAGE
+        if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket()", "Could not create socket") < 0) save_errno= errno;
+        
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //Wenn save_errno ungleich 0, dann exit mit save_errno -> andernfalls mit normalen exit fehler
+        exit(1);
+
+
 	}		   
 	
     
-    /* setsockopt: Handy debugging trick that lets
-     * us retun the server immediately after we kill it;
-     * otherwise we have to wait about 20 secs.
+    /* setsockopt:
+     * retun to the server immediately after we kill it -> otherwise -> wait about 20 secs.
      * Eliminates "ERROR on binding: Address already in use" error.
      */
     optval = 1;
     setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,(const void *)&optval , sizeof(int));
 
-    
-    
     
     /*
      * build the server's Internet address
@@ -141,7 +126,7 @@ int main(int argc, const char* argv[])
     /* let the system figure out our IP address */
     peer_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
-    //Convert char Array to INT
+    //Convert char Array into INT
     int int_cpPort = atoi( cpPort );
     
     /* this is the port we will listen on */
@@ -156,9 +141,23 @@ int main(int argc, const char* argv[])
     
     // bind
     if (bind(sfd, (struct sockaddr *) &peer_addr, sizeof(peer_addr)) < 0) {
-        fprintf(stderr,"Could not bind socket");
-        close(sfd);
+        
+        //RESET save_errno
+        save_errno = 0;
+        
+        //MAIN ERROR MESSAGE
+        if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),bind()", "Could not bind socket") < 0) save_errno= errno;
+        
+        
+        //CLOSE PARENT SOCKET
+        if (close(sfd) < 0 ) {
+            if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),bind()-close()", "Could not bind socket and could not close socket") < 0) save_errno= errno;
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //Wenn save_errno ungleich 0, dann exit mit save_errno -> andernfalls mit normalen exit fehler
         exit(1);
+        
     }
     
     
@@ -169,17 +168,44 @@ int main(int argc, const char* argv[])
 
     /*CHECK IF BACKLOG IS BIGGER THAN SOMAXCONN -> IF SO, THAN EXIT -> IS NOT ALLOWED*/
     if (BACKLOG > SOMAXCONN) {
-        fprintf(stderr,"BACKLOCK VALUE = %d IS BIGGER THAN ALLOWED = %d",BACKLOG,SOMAXCONN);
-        close(sfd);
+    
+        //RESET save_errno
+        save_errno = 0;
+        
+        //MAIN ERROR MESSAGE
+        if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),BACKLOG_CHECK", "BACKLOG Value BACKLOG is bigger than allowed (SOMAXCONN)") < 0) save_errno= errno;
+        
+        //CLOSE PARENT SOCKET
+        if (close(sfd) < 0 ) {
+            if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),BACKLOG_CHECK-close()", "BACKLOG VALULE is bigger than allowed and could not close socket") < 0) save_errno= errno;
+        }
+      
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //Wenn save_errno ungleich 0, dann exit mit save_errno -> andernfalls mit normalen exit fehler
         exit(1);
+    
     }
     
     
 	// listen
     if (listen(sfd,BACKLOG)==-1) {
-	   fprintf(stderr,"Could not start listener");
-	   close(sfd);    
-	   exit(1);
+        
+        //RESET save_errno
+        save_errno = 0;
+        
+        //MAIN ERROR MESSAGE
+        if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),listen()", "Could not start listener") < 0) save_errno= errno;
+        
+        
+        //CLOSE PARENT SOCKET
+        if (close(sfd) < 0 ) {
+            if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),listen()-close()", "Could not start listener and could not close socket") < 0) save_errno= errno;
+        }
+        
+        //EXIT LOGIC
+        if (save_errno != 0) exit (save_errno); //Wenn save_errno ungleich 0, dann exit mit save_errno -> andernfalls mit normalen exit fehler
+        exit(1);
+        
 	}       
 
     
@@ -208,11 +234,26 @@ int main(int argc, const char* argv[])
         if (cfd < 0) {
             if(errno == EWOULDBLOCK || errno == EAGAIN) { /*The socket is marked nonblocking and no connections 
                                                            are present to be accepted. */
-                continue;
+                continue; //try again
             
             } else {
-                fprintf(stderr,"Could not accept connection\n");
+                
+                
+                //RESET save_errno
+                save_errno = 0;
+                
+                //MAIN ERROR MESSAGE
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),accept()", "Could not accept connection") < 0) save_errno= errno;
+                
+                //CLOSE PARENT SOCKET
+                if (close(sfd) < 0 ) {
+                    if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "socket(),accept()-close()", "Could not start listener and could not close socket") < 0) save_errno= errno;
+                }
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
                 exit(1);
+                
             }
         }       
         /**------------------------------------------------------------*/
@@ -240,56 +281,133 @@ int main(int argc, const char* argv[])
 		// fork
 		childpid = fork();
         
-        //store errno
-        save_errno =errno;
         
+        // IF FORK FAILED
+        if (errno == EAGAIN) { /*The system-imposed limit on the total number
+                                     of processes under execution would be exceeded..
+                                     --> TRY AGAIN -> MAYBE NEXT LOOP IS BETTER*/
+            continue;
+        }
+        
+        if (errno == ENOMEM){ //ENOMEM: There is insufficient swap space for the new process
+            
+            //RESET save_errno
+            save_errno = 0;
+
+            //CLOSE PARENT SOCKET
+            if (close(sfd) < 0 ) {
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "PARENT-fork()-close()", "Could not close PARENT socket") < 0) save_errno= errno;
+            }
+
+            //CLOSE CHILD SOCKET
+            if (close(cfd) < 0 ) {
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-fork()-close()", "Could not close CHILD socket") < 0) save_errno= errno;
+            }
+
+            //EXIT LOGIC
+            if (save_errno != 0) exit (save_errno);
+            exit(1);
+ 
+            
+        }
+        
+
         
 		// CHILD process after fork
 		if(childpid == (pid_t) 0) {
 			
-			// close
-            close(sfd);
+            //RESET save_errno
+            save_errno = 0;
+
+            
+            //CLOSE PARENT SOCKET
+            if (close(sfd) < 0 ) {
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "PARENT-fork()-close()", "Could not close PARENT socket") < 0) save_errno= errno;
+            
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
+                exit (1);
+            }
             
             
             if((dup2(cfd, 0) == -1)) {
-                fprintf(stderr,"Could not read -dup2\n");
-                close(cfd);
+                
+                //RESET save_errno
+                save_errno = 0;
+
+                //MAIN ERROR MESSAGE
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-dup2()", "Could not read -dup2") < 0) save_errno= errno;
+
+                //CLOSE CHILD SOCKET
+                if (close(cfd) < 0 ) {
+                    if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-dup2()-close()", "Could not read -dup2 and could not close socket") < 0) save_errno= errno;
+                }
+    
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
                 exit(1);
+                
+                
             }
             
             if((dup2(cfd, 1) == -1)) {
-                fprintf(stderr,"Could not write -dup2\n");
-                close(cfd);
+                
+                //RESET save_errno
+                save_errno = 0;
+                
+                //MAIN ERROR MESSAGE
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-dup2()", "Could not write -dup2") < 0) save_errno= errno;
+                
+                //CLOSE CHILD SOCKET
+                if (close(cfd) < 0 ) {
+                    if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-dup2()-close()", "Could not write -dup2 and could not close socket") < 0) save_errno= errno;
+                }
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
                 exit(1);
+            
             }
 
             //when everything is ok -> exec server logic
-            close(cfd);
+           
+            //RESET save_errno
+            save_errno = 0;
+            
+            //CLOSE CHILD SOCKET
+            if (close(cfd) < 0 ) {
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "CHILD-fork()-close()", "Could not close CHILD socket") < 0) save_errno= errno;
+                
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
+                exit(1);
+            }
+
+            
             (void) execl("/usr/local/bin/simple_message_server_logic", "simple_message_server_logic", (char*) NULL);
             exit(1);
+            
             
 		}
 		// PARENT process after fork
 		else if (childpid > (pid_t) 0) {
-			//close child socket because parent is in the house
-            close(cfd);
-	
-		}
-		else {
-			// FORK FAILED
 			
-            if (save_errno == EAGAIN) { /*The system-imposed limit on the total number 
-                                         of processes under execution would be exceeded..
-                                         --> TRY AGAIN -> MAYBE NEXT LOOP IS BETTER*/
-                continue;
+            //close child socket because parent is in the house
+            
+            //RESET save_errno
+            save_errno = 0;
+            
+            //CLOSE CHILD SOCKET
+            if (close(cfd) < 0 ) {
+                if(fprintf(stderr,"%s - %s: %s\n", cpFilename, "PARENT-fork()-close()", "Could not close CHILD socket") < 0) save_errno= errno;
+            
+                //EXIT LOGIC
+                if (save_errno != 0) exit (save_errno);
+                exit(1);
             }
+           
             
-           //ENOMEM: There is insufficient swap space for the new process
-            close (sfd); //Close Parent Socket
-            close (cfd); //Close Child Socket
-            
-            exit(1);
-		}	
+		}
 
         
         
@@ -317,7 +435,7 @@ void usage(FILE * stream, const char * message, int errcode)
             "\n usage: %s options\n"
             "options:\n"
             "        -p, --port <port>       port of the server [0 to 65535]\n"
-            "        -h, --help\n", message) > 0) {
+            "        -h, --help\n", message) < 0) {
         errcode = errno; /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
     }
    

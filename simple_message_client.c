@@ -98,7 +98,7 @@ void usage(FILE * stream, const char * message, int errcode)
 			"		 -i, --image <image URL>       image url for the submitting user\n"
 			"        -m, --message <message>	   message to submit to bulletin board\n"
 			"        -v, --verbose	   trace information to stdout\n"
-            "        -h, --help\n", message) > 0) {
+            "        -h, --help\n", message) < 0) {
         /*When fprintf fails, the new exit value is the errno value from the failed fprintf()*/
 		errcode = errno; 
     }
