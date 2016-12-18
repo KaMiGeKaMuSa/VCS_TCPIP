@@ -65,12 +65,9 @@ int main(int argc, const char* argv[])
     int optval; /* flag value for setsockopt */
     struct sockaddr_in peer_addr; /* server's addr */
     
-    
     struct sockaddr_in clientaddr; /* client addr */
-    struct hostent *hostp; /* client host info */
-    
     socklen_t clientlen; /* byte size of client's address */
-    char *hostaddrp; /* dotted decimal host addr string */
+
     
     
     //TCP SERVER - VALUES ------------------------------------END
